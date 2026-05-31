@@ -23,7 +23,7 @@ jobs:
         pip install ruff
         ruff check src/ --exit-zero
 
-  # 2. AŞAMA: API Test Katmanı (Unit & Integration)
+  # 2. AŞAMA: API Test Katmanı (Hata Düzeltilmiş Güvenli Mod)
   test:
     needs: lint
     runs-on: ubuntu-latest
@@ -42,21 +42,25 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Python Kurulumu (Rapordaki Sürümle Uyumlu)
+    - name: Python Kurulumu
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11' # Stabilite için CI environment sürümü
+        python-version: '3.11'
 
-    - name: Bağımlılıkların Yüklenmesi
+    - name: Bağımlılıklerin Yüklenmesi
       run: |
         python -m pip install --upgrade pip
         pip install fastapi uvicorn sqlalchemy psycopg2-binary alembic "qrcode[pil]" pillow boto3 prometheus-client pydantic python-multipart httpx
         pip install pytest pytest-cov testcontainers factory-boy faker
 
-    - name: Host Ayarları (LocalStack için)
-      run: sudo echo "127.0.0.1 localstack" | sudo tee -a /etc/hosts
+    - name: Host ve Port Temizliği (Zombi Süreçleri Engelleme)
+      run: |
+        sudo echo "127.0.0.1 localstack" | sudo tee -a /etc/hosts
+        # Eğer arkada çalışan uvicorn varsa portu boşa çıkar
+        sudo fuser -k 8000/tcp || true
+        rm -f qrvault_test.db || true
 
-    # Selin'in tüm test mimarisini izole olarak tetikleyen güvenli alan
+    # Selin'in testlerinin kilitlenmeden, izole çalışmasını sağlayan adım
     - name: Pytest ve Kod Kapsamı (Coverage) Kontrolü
       env:
         DATABASE_URL: "sqlite:///./qrvault_test.db"
@@ -66,6 +70,7 @@ jobs:
         AWS_DEFAULT_REGION: us-east-1
         AWS_ENDPOINT_URL: http://localhost:4566
         LOCALSTACK_URL: http://localhost:4566
+        TESTING: "true"
       run: |
         pytest --cov=src --cov-fail-under=70 tests/
 
@@ -100,7 +105,7 @@ jobs:
           ghcr.io/${{ github.repository }}/qrvault:latest
           ghcr.io/${{ github.repository }}/qrvault:${{ github.sha }}
 
-  # 4. AŞAMA: Smoke Test (Uviorn Canlı Kaldırma Simülasyonu)
+  # 4. AŞAMA: Smoke Test (Uvicorn Canlı Simülasyonu)
   smoke:
     needs: docker-build
     runs-on: ubuntu-latest
@@ -164,6 +169,4 @@ jobs:
     - name: Docker Container'ı Üzerinden Newman Testlerini Koştur
       run: |
         sudo echo "127.0.0.1 localstack" | sudo tee -a /etc/hosts
-        
-        # Önceden smoke aşamasında docker üzerinde kalkan uygulamaya dışarıdan Newman ile vuruyoruz
         newman run postman/collection.json --env-var "baseUrl=http://127.0.0.1:8000" --ignore-redirects
