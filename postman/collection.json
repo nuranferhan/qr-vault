@@ -1,0 +1,316 @@
+{
+  "info": {
+    "name": "QR Vault API",
+    "_postman_id": "qr-vault-collection-v1",
+    "description": "Complete API test collection for QR Vault service. Covers CRUD, redirect tracking, analytics, and batch generation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000", "type": "string" },
+    { "key": "shortCode", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Status is ok', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.eql('ok');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create QR Code",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/qr",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"target_url\": \"https://postman-test.example.com\", \"label\": \"Postman Test\", \"error_correction\": \"H\", \"box_size\": 10, \"border\": 4, \"fill_color\": \"#000000\", \"back_color\": \"#FFFFFF\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "pm.test('Has short_code', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.property('short_code');",
+              "  pm.collectionVariables.set('shortCode', body.short_code);",
+              "});",
+              "pm.test('Status is active', () => {",
+              "  pm.expect(pm.response.json().status).to.eql('active');",
+              "});",
+              "pm.test('Scan count is zero', () => {",
+              "  pm.expect(pm.response.json().scan_count).to.eql(0);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get QR Code",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/qr/{{shortCode}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('short_code matches', () => {",
+              "  pm.expect(pm.response.json().short_code).to.eql(pm.collectionVariables.get('shortCode'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List QR Codes",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/qr?limit=10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is an array', () => {",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});",
+              "pm.test('Contains created QR', () => {",
+              "  const codes = pm.response.json().map(i => i.short_code);",
+              "  pm.expect(codes).to.include(pm.collectionVariables.get('shortCode'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update QR Label",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/qr/{{shortCode}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"label\": \"Updated via Postman\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Label updated', () => {",
+              "  pm.expect(pm.response.json().label).to.eql('Updated via Postman');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get QR Image",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/qr/{{shortCode}}/image"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Content-Type is PNG', () => {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.include('image/png');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Analytics",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/qr/{{shortCode}}/analytics"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has daily_scans', () => {",
+              "  pm.expect(pm.response.json()).to.have.property('daily_scans');",
+              "});",
+              "pm.test('Has scan_count', () => {",
+              "  pm.expect(pm.response.json()).to.have.property('scan_count');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Redirect (scan tracking)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/qr/{{shortCode}}/redirect",
+        "options": {
+          "raw": {
+            "protocolProfileBehavior": {
+              "followRedirects": false
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Redirect status 302 or 307', () => {",
+              "  pm.expect([302, 307]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Batch Create QR Codes",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/qr/batch",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"items\": [{\"target_url\": \"https://batch-1.example.com\"}, {\"target_url\": \"https://batch-2.example.com\"}, {\"target_url\": \"https://batch-3.example.com\"}]}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "pm.test('Returns 3 items', () => {",
+              "  pm.expect(pm.response.json()).to.have.length(3);",
+              "});",
+              "pm.test('All codes are unique', () => {",
+              "  const codes = pm.response.json().map(i => i.short_code);",
+              "  pm.expect(new Set(codes).size).to.eql(3);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create with UTM Parameters",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/qr",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"target_url\": \"https://utm.example.com\", \"utm_source\": \"postman\", \"utm_medium\": \"api\", \"utm_campaign\": \"collection-test\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "pm.test('Has redirect_url', () => {",
+              "  pm.expect(pm.response.json()).to.have.property('redirect_url');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invalid Error Correction (422)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/qr",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"target_url\": \"https://example.com\", \"error_correction\": \"Z\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 422 for invalid input', () => pm.response.to.have.status(422));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Non-existent QR (404)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/qr/NOTEXIST"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete QR Code",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/qr/{{shortCode}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

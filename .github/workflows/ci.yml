@@ -1,0 +1,81 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      localstack:
+        image: localstack/localstack:3.4.0
+        ports:
+          - 4566:4566
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Python Kurulumu
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Node.js Kurulumu
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Bağımlılıkların Yüklenmesi
+      run: |
+        pip install --upgrade pip
+        pip install fastapi uvicorn sqlalchemy psycopg2-binary alembic "qrcode[pil]" pillow boto3 prometheus-client pydantic python-multipart httpx
+
+    - name: Uygulamayı Başlat ve Bekle
+      env:
+        DATABASE_URL: "sqlite:///./qrvault.db"
+        LOCALSTACK: "true"
+        AWS_ACCESS_KEY_ID: mock_key
+        AWS_SECRET_ACCESS_KEY: mock_secret
+        AWS_DEFAULT_REGION: us-east-1
+        AWS_ENDPOINT_URL: http://localhost:4566
+        LOCALSTACK_URL: http://localhost:4566
+      run: |
+        sudo echo "127.0.0.1 localstack" | sudo tee -a /etc/hosts
+        
+        uvicorn src.main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+        
+        echo "FastAPI sunucusunun düzgün çalışıp çalışmadığı kontrol ediliyor..."
+        for i in {1..15}; do
+          if curl -s http://127.0.0.1:8000/health > /dev/null; then
+            echo "FastAPI başarıyla başlatıldı ve çalışıyor!"
+            break
+          fi
+          echo "API'den yanıt bekleniyor (deneme $i/15)..."
+          sleep 2
+        done
+
+        if ! curl -s http://127.0.0.1:8000/health > /dev/null; then
+          echo "HATA: FastAPI başlatılamadı. Uvicorn logları gösteriliyor:"
+          cat uvicorn.log
+          exit 1
+        fi
+
+    - name: Newman Yüklenmesi
+      run: npm install -g newman
+
+    - name: Postman Testlerini Çalıştır
+      run: |
+        newman run postman/collection.json --env-var "baseUrl=http://127.0.0.1:8000" --ignore-redirects || {
+          echo "Newman testleri başarısız oldu! Hata ayıklama için uvicorn logları dökülüyor:"
+          cat uvicorn.log
+          exit 1
+        }

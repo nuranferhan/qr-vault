@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qr-vault-config
+  namespace: default
+data:
+  LOCALSTACK: "true"
+  LOCALSTACK_URL: "http://localstack:4566"
+  S3_BUCKET: "qr-vault-bucket"
+  AWS_DEFAULT_REGION: "us-east-1"
+  LOG_LEVEL: "info"
+  WORKERS: "2"
