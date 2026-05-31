@@ -23,9 +23,9 @@ jobs:
         pip install ruff
         ruff check src/ --exit-zero
 
-  # 2. AŞAMA: API Test Katmanı (Selin testleri ekleyince buraya entegre edecek)
+  # 2. AŞAMA: API Test Katmanı (Unit & Integration)
   test:
-    needs: lint # Önce lint aşamasının bitmesini bekler
+    needs: lint
     runs-on: ubuntu-latest
 
     services:
@@ -42,19 +42,24 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Python Kurulumu
+    - name: Python Kurulumu (Rapordaki Sürümle Uyumlu)
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.11' # Stabilite için CI environment sürümü
 
     - name: Bağımlılıkların Yüklenmesi
       run: |
-        pip install --upgrade pip
+        python -m pip install --upgrade pip
         pip install fastapi uvicorn sqlalchemy psycopg2-binary alembic "qrcode[pil]" pillow boto3 prometheus-client pydantic python-multipart httpx
+        pip install pytest pytest-cov testcontainers factory-boy faker
 
-    - name: Uygulamayı Başlat ve Bekle (Sağlık Kontrolü)
+    - name: Host Ayarları (LocalStack için)
+      run: sudo echo "127.0.0.1 localstack" | sudo tee -a /etc/hosts
+
+    # Selin'in tüm test mimarisini izole olarak tetikleyen güvenli alan
+    - name: Pytest ve Kod Kapsamı (Coverage) Kontrolü
       env:
-        DATABASE_URL: "sqlite:///./qrvault.db"
+        DATABASE_URL: "sqlite:///./qrvault_test.db"
         LOCALSTACK: "true"
         AWS_ACCESS_KEY_ID: mock_key
         AWS_SECRET_ACCESS_KEY: mock_secret
@@ -62,34 +67,11 @@ jobs:
         AWS_ENDPOINT_URL: http://localhost:4566
         LOCALSTACK_URL: http://localhost:4566
       run: |
-        sudo echo "127.0.0.1 localstack" | sudo tee -a /etc/hosts
-        
-        uvicorn src.main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
-        
-        echo "FastAPI sunucusunun düzgün çalışıp çalışmadığı kontrol ediliyor..."
-        for i in {1..15}; do
-          if curl -s http://127.0.0.1:8000/health > /dev/null; then
-            echo "FastAPI başarıyla başlatıldı ve çalışıyor!"
-            break
-          fi
-          echo "API'den yanıt bekleniyor (deneme $i/15)..."
-          sleep 2
-        done
-
-        if ! curl -s http://127.0.0.1:8000/health > /dev/null; then
-          echo "HATA: FastAPI başlatılamadı. Uvicorn logları dökülüyor:"
-          cat uvicorn.log
-          exit 1
-        fi
-
-    # Selin Unit ve Integration testlerini bitirdiğinde, 
-    # üstteki adıma "pytest" bağımlılığını ekleyip, buraya sadece aşağıdaki komutu yazması yeterli olacak:
-    # - name: Selin'in Testlerini Koştur
-    #   run: pytest --cov=src --cov-fail-under=70 tests/
+        pytest --cov=src --cov-fail-under=70 tests/
 
   # 3. AŞAMA: Docker Multi-stage Build & Paketleme
   docker-build:
-    needs: test # Önce test aşamasının (ve API doğrulamasının) bitmesini bekler
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -118,7 +100,7 @@ jobs:
           ghcr.io/${{ github.repository }}/qrvault:latest
           ghcr.io/${{ github.repository }}/qrvault:${{ github.sha }}
 
-  # 4. AŞAMA: Smoke Test (Ayağa Kaldırma Kontrolü)
+  # 4. AŞAMA: Smoke Test (Uviorn Canlı Kaldırma Simülasyonu)
   smoke:
     needs: docker-build
     runs-on: ubuntu-latest
@@ -135,7 +117,7 @@ jobs:
     - name: Konfigürasyon Ayarları
       run: sudo echo "127.0.0.1 localstack" | sudo tee -a /etc/hosts
 
-    - name: Paketlenen Docker İmajını Test Amaçlı Ayağa Kaldır
+    - name: Paketlenen Docker İmajını Canlıya Al ve Port Bağla
       env:
         DATABASE_URL: "sqlite:///./qrvault.db"
         LOCALSTACK: "true"
@@ -152,14 +134,14 @@ jobs:
           -e AWS_ENDPOINT_URL="http://localhost:4566" \
           ghcr.io/${{ github.repository }}/qrvault:latest
 
-    - name: Dağıtım Öncesi Son Sağlık Kontrolü
+    - name: Entegrasyon Öncesi Canlı Sağlık Kontrolü
       run: |
         sleep 8
         curl -f http://127.0.0.1:8000/health || (docker logs qrvault_app && exit 1)
 
   # 5. AŞAMA: Newman Otomasyon Testleri
   newman:
-    needs: smoke # En son aşama olarak çalışır
+    needs: smoke
     runs-on: ubuntu-latest
 
     services:
@@ -171,41 +153,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Python Kurulumu
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
     - name: Node.js Kurulumu
       uses: actions/setup-node@v4
       with:
         node-version: '18'
 
-    - name: Bağımlılıkların ve Newman CLI'ın Kurulması
-      run: |
-        pip install fastapi uvicorn sqlalchemy psycopg2-binary "qrcode[pil]" pillow boto3 prometheus-client pydantic python-multipart httpx
-        npm install -g newman
+    - name: Newman CLI Kurulumu
+      run: npm install -g newman
 
-    - name: Newman Koleksiyonunu Koştur
-      env:
-        DATABASE_URL: "sqlite:///./qrvault.db"
-        LOCALSTACK: "true"
-        AWS_ACCESS_KEY_ID: mock_key
-        AWS_SECRET_ACCESS_KEY: mock_secret
-        AWS_DEFAULT_REGION: us-east-1
-        AWS_ENDPOINT_URL: http://localhost:4566
+    - name: Docker Container'ı Üzerinden Newman Testlerini Koştur
       run: |
         sudo echo "127.0.0.1 localstack" | sudo tee -a /etc/hosts
-        uvicorn src.main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
         
-        for i in {1..15}; do
-          if curl -s http://127.0.0.1:8000/health > /dev/null; then
-            break
-          fi
-          sleep 2
-        done
-
-        newman run postman/collection.json --env-var "baseUrl=http://127.0.0.1:8000" --ignore-redirects || {
-          cat uvicorn.log
-          exit 1
-        }
+        # Önceden smoke aşamasında docker üzerinde kalkan uygulamaya dışarıdan Newman ile vuruyoruz
+        newman run postman/collection.json --env-var "baseUrl=http://127.0.0.1:8000" --ignore-redirects
