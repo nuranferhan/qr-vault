@@ -4,7 +4,7 @@
 
 ## 1. Giriş
 
-Bu proje, proje havuzundaki **35 numaralı konu** olan "QR Code Generator Service" üzerine inşa edilmiştir: QR kodu üretmek, üretilen PNG'i S3'e yüklemek ve paylaşılabilir bir link vermek.
+Bu proje, "QR Code Generator Service" üzerine inşa edilmiştir: Projenin amacı QR kodu üretmek, üretilen PNG'i S3'e yüklemek ve paylaşılabilir bir link vermektir.
 
 Projenin amacı yalnızca işlevsel bir servis yazmak değil; bu servisi etrafında tam bir test ve dağıtım altyapısı kurmaktır. Seçilen konu, S3 entegrasyonunu zorunlu kılması ve PNG üretiminin farklı parametrelerle (renk, hata düzeltme seviyesi, boyut) test edilebilir olması nedeniyle test çeşitliliği açısından elverişlidir.
 
@@ -14,31 +14,7 @@ Temel servis, standart bir QR üretecinin ötesine geçen şu özelliklerle tasa
 
 ## 2. Mimari
 
-```
-Tarayıcı / İstemci
-       │
-       ▼
-   FastAPI (uvicorn, 2 worker)
-       │
-       ├── POST /qr ──────► QRService (qrcode + Pillow)
-       │                         │
-       │                         ▼
-       │                    S3Service ──► LocalStack S3
-       │                         │
-       │                         ▼
-       │                    SQLAlchemy ──► PostgreSQL 16
-       │
-       ├── GET /qr/{code}/redirect ──► ScanEvent kaydı ──► 302 yönlendirme
-       │
-       ├── GET /metrics ──► Prometheus scrape
-       │
-       └── GET / ──────────► HTML arayüz (Playwright hedefi)
 
-İzleme:   Prometheus (15s scrape) → Grafana (6 panel)
-Yük testi: k6
-CI/CD:    GitHub Actions (5 aşama)
-K8s:      Minikube — Deployment (2 replica) + Service (NodePort) + ConfigMap
-```
 
 **Bileşenler:**
 
@@ -204,3 +180,21 @@ Grafana dashboard'unda 6 panel bulunur: throughput, p50/p95/p99 latency, hata or
 - Prometheus Python Client — https://github.com/prometheus/client_python
 - SQLAlchemy 2.0 Migration Guide — https://docs.sqlalchemy.org/en/20/changelog/migration_20.html
 - Factory Boy Documentation — https://factoryboy.readthedocs.io
+
+
+======================================================== tests coverage =========================================================
+________________________________________ coverage: platform win32, python 3.14.3-final-0 ________________________________________
+
+Name                                Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------
+src\__init__.py                         0      0   100%
+src\database.py                         8      0   100%
+src\main.py                           211     55    74%   167, 172, 195-197, 240, 263-281, 290, 306, 308, 310-312, 328-333, 342-355, 369-388, 393
+src\models.py                          55      4    93%   25, 29, 34, 37
+src\services\__init__.py                0      0   100%
+src\services\analytics_service.py      18      6    67%   26-35
+src\services\qr_service.py             35      3    91%   16-17, 60
+src\services\s3_service.py             42      5    88%   37-42, 64, 67-68
+-----------------------------------------------------------------
+TOTAL                                 369     73    80%
+Required test coverage of 70% reached. Total coverage: 80.22%
