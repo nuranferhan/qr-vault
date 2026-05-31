@@ -186,4 +186,4 @@ jobs:
           qrvault-ci:latest
         sleep 8
         curl -f http://127.0.0.1:8000/health || (docker logs qrvault_app && exit 1)
-        newman run postman/collection.json --env-var "baseUrl=http://128.0.0.1:8000" --ignore-redirects
+        newman run postman/collection.json --env-var "baseUrl=http://127.0.0.1:8000" --ignore-redirects
