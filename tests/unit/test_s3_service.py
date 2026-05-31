@@ -20,10 +20,9 @@ def _make_service_with_mock():
         import src.services.s3_service
         from src.services.s3_service import S3Service
 
-        src.services.s3_service.S3_BUCKET = "test-bucket"
+        src.services.s3_service.BUCKET_NAME = "test-bucket"
 
         svc = S3Service()
-        svc.bucket_name = "test-bucket"
         svc.client = mock_client
         return svc, mock_client
 
@@ -42,9 +41,7 @@ class TestS3ServiceEnsureBucket:
         )
         client.head_bucket.side_effect = error
         svc.ensure_bucket()
-        client.create_bucket.assert_called_once_with(
-            Bucket="test-qr-vault-bucket"
-        )
+        client.create_bucket.assert_called_once_with(Bucket="test-bucket")
 
 
 class TestS3ServiceUpload:
@@ -54,7 +51,7 @@ class TestS3ServiceUpload:
         key = svc.upload_png(b"\x89PNGfake", "qr/abc.png")
         assert key == "qr/abc.png"
         client.put_object.assert_called_once_with(
-            Bucket="test-qr-vault-bucket",
+            Bucket="test-bucket",
             Key="qr/abc.png",
             Body=b"\x89PNGfake",
             ContentType="image/png",
@@ -83,7 +80,7 @@ class TestS3ServiceDelete:
         client.delete_object.return_value = {}
         svc.delete_object("qr/abc.png")
         client.delete_object.assert_called_once_with(
-            Bucket="test-qr-vault-bucket", Key="qr/abc.png"
+            Bucket="test-bucket", Key="qr/abc.png"
         )
 
     def test_delete_swallows_client_error(self):
