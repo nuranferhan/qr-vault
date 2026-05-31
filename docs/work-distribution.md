@@ -17,3 +17,9 @@
 | Prometheus & Grafana Metrik Dashboard | Sude | Ferhan  
 | Kubernetes (Minikube) Manifestleri | Ferhan | Sude  
 | Akademik Rapor, Sunum ve Diyagramlar | Sude | Selin  
+
+## Sunum Sorumluluğu (20 dk slot)
+- 0-7 dk: Problem + Mimari + Test Stratejisi (Teorik ve Altyapı Girişi) → Sude Naz Görmez
+- 7-14 dk: Canlı Demo Akışı (PR → CI → Deploy → Metric → E2E) → Nuran Ferhan Kasap
+- 14-17 dk: Proje Sayıları + Teknik Kazanımlar & Öğrenilenler → Selin Tütüncü
+- 17-20 dk: Soru - Cevap (Q&A) → Tüm Ekip
