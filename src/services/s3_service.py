@@ -1,4 +1,3 @@
-
 import contextlib
 import os
 
@@ -8,7 +7,7 @@ from botocore.exceptions import ClientError
 BUCKET_NAME = os.getenv("S3_BUCKET", "qr-vault-bucket")
 AWS_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 LOCALSTACK = os.getenv("LOCALSTACK", "true").lower() == "true"
-LOCALSTACK_URL = os.getenv("LOCALSTACK_URL", "http://localstack:4566")
+LOCALSTACK_URL = os.getenv("LOCALSTACK_URL", "http://localhost:4566")
 
 
 def _make_client():
@@ -28,7 +27,6 @@ class S3Service:
         self.bucket = BUCKET_NAME
 
     def ensure_bucket(self):
-  
         try:
             self.client.head_bucket(Bucket=self.bucket)
         except ClientError as e:
@@ -44,7 +42,6 @@ class S3Service:
                 raise
 
     def upload_png(self, png_bytes: bytes, key: str) -> str:
-
         self.client.put_object(
             Bucket=self.bucket,
             Key=key,
