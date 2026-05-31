@@ -71,6 +71,12 @@ def client(mock_s3, engine):
         yield c
 
 @pytest.fixture()
+def created_qr(client, sample_qr_payload):
+    response = client.post("/qr", json=sample_qr_payload)
+    assert response.status_code == 201
+    return response.json()
+
+@pytest.fixture()
 def sample_qr_payload():
     return {
         "target_url": "https://example.com/test",
