@@ -16,33 +16,6 @@ FastAPI ile geliştirilmiş, canlı ortama (production-grade) hazır bir QR Kod 
 ## Mimari (Architecture)
 
 
-```
-
-Tarayıcı / İstemci (Client)
-│
-▼
-FastAPI (uvicorn)
-│
-├── POST /qr ──────► QRService (qrcode + Pillow)
-│                         │
-│                         ▼
-│                    S3Service ──► LocalStack S3 (veya gerçek AWS)
-│                         │
-│                         ▼
-│                    SQLAlchemy ──► PostgreSQL / SQLite
-│
-├── GET /qr/{code}/redirect ──► Tarama Olayı (ScanEvent) Kaydı ──► 302 Yönlendirme
-│
-├── GET /metrics ──► Prometheus Veri Toplama (Scrape)
-│
-└── GET / ──────────► Minimal HTML Arayüzü (Playwright E2E Test Hedefi)
-
-İzleme (Monitoring): Prometheus → Grafana
-Yük Testi:            k6
-CI/CD:               GitHub Actions (lint → test → docker build → deploy → smoke → newman)
-K8s:                 Minikube (Deployment + Service + ConfigMap)
-
-```
 
 Görsel diyagram için `docs/architecture.png` dosyasına göz atabilirsiniz.
 
