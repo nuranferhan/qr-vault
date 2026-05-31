@@ -15,7 +15,7 @@ FastAPI ile geliştirilmiş, canlı ortama (production-grade) hazır bir QR Kod 
 
 ## Mimari (Architecture)
 
-
+ 
 
 Görsel diyagram için `docs/architecture.png` dosyasına göz atabilirsiniz.
 
