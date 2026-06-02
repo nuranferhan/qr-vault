@@ -226,6 +226,8 @@ Temel gereksinimlerin ötesinde, bu mimari şunları içerir:
 | Orkestrasyon | Kubernetes (Minikube) |
 
 ---
+## Video Linki
+https://drive.google.com/file/d/1A7KlkDJWR_Oe81UcZ8Ki1uqbeX_IyAxV/view?usp=drive_link
 
 ## Lisans (License)
 
