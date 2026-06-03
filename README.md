@@ -1,4 +1,4 @@
-# QR Vault 
+# QR Vault  
 
 FastAPI ile geliştirilmiş, canlı ortama (production-grade) hazır bir QR Kod Oluşturma servisidir. QR kodlarını PNG formatında üretir, S3 üzerinde (LocalStack aracılığıyla) saklar, tarama verilerini günlük analizlerle takip eder, toplu (batch) üretimi destekler, özel markalama (renkler, hata düzeltme seviyeleri) ve UTM parametresi ekleme gibi gelişmiş özellikler sunar.
 
